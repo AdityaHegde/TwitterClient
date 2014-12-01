@@ -1,0 +1,12 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.codepath.apps.restclienttemplate.HomeActivity" >
+    
+    <item
+        android:id="@+id/action_compose"
+        android:orderInCategory="100"
+        android:title="@string/action_compose"
+        app:showAsAction="always"/>
+
+</menu>
