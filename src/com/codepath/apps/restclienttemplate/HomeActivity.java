@@ -28,12 +28,13 @@ import eu.erikw.PullToRefreshListView;
 import eu.erikw.PullToRefreshListView.OnRefreshListener;
 
 public class HomeActivity extends ActionBarActivity implements OnScrollListener {
-	private static final int VISIBLE_THRESHOLD = 10;
+	private static final int VISIBLE_THRESHOLD = 20;
 	private ArrayList<Tweet> tweets;
 	private TweetAdapter tweetAdapter;
 	private PullToRefreshListView lvTweets;
 	private boolean loading = false;
-	private int max_tweet_id = -1;
+	private long max_tweet_id = -1;
+	private long since_tweet_id = -1;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -53,65 +54,89 @@ public class HomeActivity extends ActionBarActivity implements OnScrollListener 
 			@Override
 			public void onRefresh() {
 				loading = true;
-				loadTweets(-1);
+				loadTweets(-1, since_tweet_id);
 			}
 		});
 		lvTweets.setOnScrollListener(this);
 	}
 
-	private void loadTweets(final int max_id) {
+	//TODO: Handle the case where refresh on top of list doesn't return the whole list
+	private void loadTweets(final long max_id, final long since_id) {
 		if(isNetworkAvailable()) {
 			RestClient client = RestClientApp.getRestClient();
 			Log.d("Debug", "Call made");
-			client.getHomeTimeline(max_id, new JsonHttpResponseHandler() {
-				public void onSuccess(int arg0, JSONArray jsonArray) {
-					Log.d("Debug", "Call returned");
-					if(max_id == -1) {
-						tweets.clear();
-					}
-					Tweet.fromJson(jsonArray, tweets);
-					if(tweets.size() > 0) {
-						max_tweet_id = ((Tweet)tweets.get(tweets.size() - 1)).tweet_id;
+			client.getHomeTimeline(max_id, since_id, new JsonHttpResponseHandler() {
+				public void onSuccess(JSONArray jsonArray) {
+					ArrayList<Tweet> retTweets = Tweet.fromJson(jsonArray);
+					Log.d("Debug", "Call returned with " + retTweets.size() + " tweets");
+					if(since_id == -1) {
+						tweets.addAll(retTweets);
 					}
 					else {
-						max_tweet_id = -1;
+						tweets.addAll(0, retTweets);
 					}
+					updateTweetIds();
 					tweetAdapter.notifyDataSetChanged();
-					lvTweets.onRefreshComplete();
-					loading = false;
-				}
-				
-				@Override
-				public void onSuccess(int arg0, JSONObject arg1) {
-					Log.d("Debug", arg1.toString());
-					super.onSuccess(arg0, arg1);
+					dataCallEnded();
 				}
 				
 				@Override
 				public void onFailure(Throwable arg0, String arg1) {
-					Log.d("Debug", arg0.toString());
 					Log.d("Debug", arg1);
+					dataCallEnded();
 					super.onFailure(arg0, arg1);
 				}
 				
 				@Override
-				public void onStart() {
-					Log.d("Debug", "start");
-					super.onStart();
+				public void onFailure(Throwable arg0, JSONArray arg1) {
+					Log.d("Debug", arg1.toString());
+					dataCallEnded();
+					super.onFailure(arg0, arg1);
 				}
 				
 				@Override
-				public void onFinish() {
-					Log.d("Debug", "finish");
-					super.onFinish();
+				public void onFailure(Throwable arg0, JSONObject arg1) {
+					Log.d("Debug", arg1.toString());
+					dataCallEnded();
+					super.onFailure(arg0, arg1);
 				}
 			});
 		}
 		else {
 			tweets.clear();
 			Tweet.fromDB(tweets);
-			max_tweet_id = ((Tweet)tweets.get(tweets.size() - 1)).tweet_id;
+			updateTweetIds();
 			tweetAdapter.notifyDataSetChanged();
+			dataCallEnded();
+		}
+	}
+	
+	private void updateTweetMaxId(ArrayList<Tweet> tweets) {
+		if(tweets.size() > 0) {
+			max_tweet_id = ((Tweet)tweets.get(tweets.size() - 1)).tweet_id;
+		}
+		else {
+			max_tweet_id = -1;
+		}
+	}
+	
+	private void updateTweetIds(ArrayList<Tweet> tweets) {
+		if(tweets.size() > 0) {
+			max_tweet_id = ((Tweet)tweets.get(tweets.size() - 1)).tweet_id;
+			since_tweet_id = ((Tweet)tweets.get(0)).tweet_id;
+		}
+		else {
+			max_tweet_id = -1;
+			since_tweet_id = -1;
+		}
+	}
+	
+	private void updateTweetIds() {
+		updateTweetIds(tweets);
+	}
+	
+	private void dataCallEnded() {
+		if(loading) {
 			lvTweets.onRefreshComplete();
 			loading = false;
 		}
@@ -139,7 +164,7 @@ public class HomeActivity extends ActionBarActivity implements OnScrollListener 
 		int id = item.getItemId();
 		if(id == R.id.action_compose) {
 			Intent i = new Intent(getBaseContext(), ComposeActivity.class);
-			startActivity(i);
+			startActivityForResult(i, 0);
 			return true;
 		}
 		return super.onOptionsItemSelected(item);
@@ -166,12 +191,14 @@ public class HomeActivity extends ActionBarActivity implements OnScrollListener 
 		//Log.d("Debug", loading + "");
 		if(!loading && totalItemCount - firstVisibleItem < VISIBLE_THRESHOLD) {
 			loading = true;
-			loadTweets(this.max_tweet_id);
+			//Log.d("Debug", this.max_tweet_id+"");
+			loadTweets(this.max_tweet_id, -1);
 		}
 	}
 	
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		Log.d("Debug", "post");
 		if (resultCode == RESULT_OK) {
 			RestClient client = RestClientApp.getRestClient();
 			client.postTweet(data.getStringExtra("tweet"), new JsonHttpResponseHandler() {
@@ -179,6 +206,7 @@ public class HomeActivity extends ActionBarActivity implements OnScrollListener 
 				public void onSuccess(JSONObject json) {
 					Tweet tweet = new Tweet(json);
 					tweets.add(0, tweet);
+					since_tweet_id = tweet.tweet_id;
 					tweetAdapter.notifyDataSetChanged();
 				}
 			});

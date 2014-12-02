@@ -21,7 +21,7 @@ import com.activeandroid.query.Select;
 @Table(name = "Tweets")
 public class Tweet extends Model {
 	@Column(name = "tweet_id", unique = true, onUniqueConflict = Column.ConflictAction.REPLACE)
-	public int tweet_id;
+	public long tweet_id;
 	@Column(name = "user", onUpdate = ForeignKeyAction.CASCADE, onDelete = ForeignKeyAction.CASCADE)
 	public User user;
 	@Column(name = "created_at")
@@ -35,7 +35,7 @@ public class Tweet extends Model {
 	
 	public Tweet(JSONObject json) {
 		try {
-			this.tweet_id = json.getInt("id");
+			this.tweet_id = json.getLong("id");
 			
 			SimpleDateFormat format = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH);
 			this.created_at = format.parse(json.getString("created_at")).getTime();
@@ -49,11 +49,10 @@ public class Tweet extends Model {
 		}
 	}
 	
-	public static ArrayList<Tweet> fromJson(JSONArray jsonArr, ArrayList<Tweet> tweets) {
-		
-		for(int i = 0; i < jsonArr.length(); i++) {
+	public static ArrayList<Tweet> fromJson(JSONArray jsonArray, ArrayList<Tweet> tweets) {
+		for(int i = 0; i < jsonArray.length(); i++) {
 			try {
-				Tweet tweet = new Tweet(jsonArr.getJSONObject(i));
+				Tweet tweet = new Tweet(jsonArray.getJSONObject(i));
 				tweet.save();
 				tweets.add(tweet);
 			} catch (JSONException e) {
@@ -64,6 +63,10 @@ public class Tweet extends Model {
 		return tweets;
 	}
 	
+	public static ArrayList<Tweet> fromJson(JSONArray jsonArray) {
+		return fromJson(jsonArray, new ArrayList<Tweet>());
+	}
+	
 	public static ArrayList<Tweet> fromDB(ArrayList<Tweet> tweets) {
 		List<Tweet> ts = new Select().from(Tweet.class).execute();
 		
@@ -72,5 +75,9 @@ public class Tweet extends Model {
 		}
 		
 		return tweets;
+	}
+	
+	public static ArrayList<Tweet> fromDB() {
+		return fromDB(new ArrayList<Tweet>());
 	}
 }
