@@ -53,7 +53,7 @@ public class Tweet extends Model {
 		for(int i = 0; i < jsonArray.length(); i++) {
 			try {
 				Tweet tweet = new Tweet(jsonArray.getJSONObject(i));
-				tweet.save();
+				//tweet.save();
 				tweets.add(tweet);
 			} catch (JSONException e) {
 				e.printStackTrace();

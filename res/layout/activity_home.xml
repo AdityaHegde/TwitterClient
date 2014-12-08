@@ -4,15 +4,10 @@
     android:layout_height="match_parent"
     tools:context="com.codepath.apps.restclienttemplate.HomeActivity" >
 
-    <eu.erikw.PullToRefreshListView
-        android:id="@+id/lvTweets"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true" >
-
-    </eu.erikw.PullToRefreshListView>
+    <FrameLayout
+       android:id="@+id/tweets_placeholder"
+       android:layout_height="match_parent"
+       android:layout_width="match_parent" >
+	</FrameLayout>
 
 </RelativeLayout>

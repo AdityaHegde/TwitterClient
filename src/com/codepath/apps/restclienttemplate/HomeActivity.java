@@ -1,8 +1,5 @@
 package com.codepath.apps.restclienttemplate;
 
-import java.util.ArrayList;
-
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import android.content.Context;
@@ -10,136 +7,57 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBar.Tab;
+import android.support.v7.app.ActionBar.TabListener;
 import android.support.v7.app.ActionBarActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.AbsListView;
-import android.widget.AbsListView.OnScrollListener;
 
+import com.activeandroid.util.Log;
 import com.codepath.apps.restclienttemplate.models.Tweet;
 import com.loopj.android.http.JsonHttpResponseHandler;
-import com.nostra13.universalimageloader.cache.disc.naming.Md5FileNameGenerator;
-import com.nostra13.universalimageloader.core.ImageLoader;
-import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
-import com.nostra13.universalimageloader.core.assist.QueueProcessingType;
 
-import eu.erikw.PullToRefreshListView;
-import eu.erikw.PullToRefreshListView.OnRefreshListener;
-
-public class HomeActivity extends ActionBarActivity implements OnScrollListener {
-	private static final int VISIBLE_THRESHOLD = 20;
-	private ArrayList<Tweet> tweets;
-	private TweetAdapter tweetAdapter;
-	private PullToRefreshListView lvTweets;
-	private boolean loading = false;
-	private long max_tweet_id = -1;
-	private long since_tweet_id = -1;
+@SuppressWarnings("deprecation")
+//TODO : user the new method for API 21 to create tabs
+public class HomeActivity extends ActionBarActivity implements TabListener {
+	private static String HOME_TIMELINE_API = "statuses/home_timeline.json";
+	private static String MENTIONS_TIMELINE_API = "statuses/mentions_timeline.json";
+	
+	private TweetsLoader tweetsLoader;
+	private TweetsFragment tweetsFragment;
+	
+	private boolean isHome;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_home);
-		initUIL();
-		setupAdapter();
+		setupTabs();
 	}
 
-	private void setupAdapter() {
-		lvTweets = (PullToRefreshListView) findViewById(R.id.lvTweets);
-		tweets = new ArrayList<Tweet>();
-		tweetAdapter = new TweetAdapter(getBaseContext(), tweets);
-		lvTweets.setAdapter(tweetAdapter);
-		lvTweets.setOnRefreshListener(new OnRefreshListener() {
-			
-			@Override
-			public void onRefresh() {
-				loading = true;
-				loadTweets(-1, since_tweet_id);
-			}
-		});
-		lvTweets.setOnScrollListener(this);
-	}
+	private void setupTabs() {
+		ActionBar actionBar = getSupportActionBar();
+		actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
+		actionBar.setDisplayShowTitleEnabled(true);
 
-	//TODO: Handle the case where refresh on top of list doesn't return the whole list
-	private void loadTweets(final long max_id, final long since_id) {
-		if(isNetworkAvailable()) {
-			RestClient client = RestClientApp.getRestClient();
-			Log.d("Debug", "Call made");
-			client.getHomeTimeline(max_id, since_id, new JsonHttpResponseHandler() {
-				public void onSuccess(JSONArray jsonArray) {
-					ArrayList<Tweet> retTweets = Tweet.fromJson(jsonArray);
-					Log.d("Debug", "Call returned with " + retTweets.size() + " tweets");
-					if(since_id == -1) {
-						tweets.addAll(retTweets);
-					}
-					else {
-						tweets.addAll(0, retTweets);
-					}
-					updateTweetIds();
-					tweetAdapter.notifyDataSetChanged();
-					dataCallEnded();
-				}
-				
-				@Override
-				public void onFailure(Throwable arg0, String arg1) {
-					Log.d("Debug", arg1);
-					dataCallEnded();
-					super.onFailure(arg0, arg1);
-				}
-				
-				@Override
-				public void onFailure(Throwable arg0, JSONArray arg1) {
-					Log.d("Debug", arg1.toString());
-					dataCallEnded();
-					super.onFailure(arg0, arg1);
-				}
-				
-				@Override
-				public void onFailure(Throwable arg0, JSONObject arg1) {
-					Log.d("Debug", arg1.toString());
-					dataCallEnded();
-					super.onFailure(arg0, arg1);
-				}
-			});
-		}
-		else {
-			tweets.clear();
-			Tweet.fromDB(tweets);
-			updateTweetIds();
-			tweetAdapter.notifyDataSetChanged();
-			dataCallEnded();
-		}
-	}
-	
-	private void updateTweetMaxId(ArrayList<Tweet> tweets) {
-		if(tweets.size() > 0) {
-			max_tweet_id = ((Tweet)tweets.get(tweets.size() - 1)).tweet_id;
-		}
-		else {
-			max_tweet_id = -1;
-		}
-	}
-	
-	private void updateTweetIds(ArrayList<Tweet> tweets) {
-		if(tweets.size() > 0) {
-			max_tweet_id = ((Tweet)tweets.get(tweets.size() - 1)).tweet_id;
-			since_tweet_id = ((Tweet)tweets.get(0)).tweet_id;
-		}
-		else {
-			max_tweet_id = -1;
-			since_tweet_id = -1;
-		}
-	}
-	
-	private void updateTweetIds() {
-		updateTweetIds(tweets);
-	}
-	
-	private void dataCallEnded() {
-		if(loading) {
-			lvTweets.onRefreshComplete();
-			loading = false;
-		}
+		Tab home = actionBar
+			.newTab()
+			.setText("Home")
+			.setTag("home")
+			.setTabListener(this);
+
+		actionBar.addTab(home);
+		actionBar.selectTab(home);
+
+		Tab mentions = actionBar
+			.newTab()
+			.setText("Mentions")
+			.setTag("mentions")
+			.setTabListener(this);
+
+		actionBar.addTab(mentions); 
 	}
 	
 	public Boolean isNetworkAvailable() {
@@ -162,54 +80,88 @@ public class HomeActivity extends ActionBarActivity implements OnScrollListener 
 		// automatically handle clicks on the Home/Up button, so long
 		// as you specify a parent activity in AndroidManifest.xml.
 		int id = item.getItemId();
-		if(id == R.id.action_compose) {
-			Intent i = new Intent(getBaseContext(), ComposeActivity.class);
-			startActivityForResult(i, 0);
-			return true;
+		switch(id) {
+			case R.id.action_compose:
+				Intent i = new Intent(getBaseContext(), ComposeActivity.class);
+				startActivityForResult(i, 0);
+				return true;
+			case R.id.action_profile:
+				openProfileActivity(getBaseContext(), null);
+				return true;
+			default: break;
 		}
 		return super.onOptionsItemSelected(item);
-	}
-
-    private void initUIL() {
-    	ImageLoaderConfiguration config = new ImageLoaderConfiguration.Builder(getBaseContext())
-		.threadPriority(Thread.NORM_PRIORITY - 2)
-		.denyCacheImageMultipleSizesInMemory()
-		.discCacheFileNameGenerator(new Md5FileNameGenerator())
-		.discCacheSize(50 * 1024 * 1024)
-		.tasksProcessingOrder(QueueProcessingType.LIFO)
-		.build();
-    	ImageLoader.getInstance().init(config);
-	}
-
-	@Override
-	public void onScrollStateChanged(AbsListView view, int scrollState) {
-	}
-
-	@Override
-	public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-		//Log.d("Debug", totalItemCount + " - " + firstVisibleItem);
-		//Log.d("Debug", loading + "");
-		if(!loading && totalItemCount - firstVisibleItem < VISIBLE_THRESHOLD) {
-			loading = true;
-			//Log.d("Debug", this.max_tweet_id+"");
-			loadTweets(this.max_tweet_id, -1);
-		}
 	}
 	
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		Log.d("Debug", "post");
+		Log.d("post");
 		if (resultCode == RESULT_OK) {
 			RestClient client = RestClientApp.getRestClient();
 			client.postTweet(data.getStringExtra("tweet"), new JsonHttpResponseHandler() {
 				@Override
 				public void onSuccess(JSONObject json) {
-					Tweet tweet = new Tweet(json);
-					tweets.add(0, tweet);
-					since_tweet_id = tweet.tweet_id;
-					tweetAdapter.notifyDataSetChanged();
+					if(isHome) {
+						Tweet tweet = new Tweet(json);
+						tweetsFragment.addTweet(tweet);
+					}
 				}
 			});
 		}
+	}
+	
+	public static void openProfileActivity(Context context, String user_id) {
+		Intent i = new Intent(context, ProfileActivity.class);
+		if(user_id == null) {
+			i.putExtra("isOwnProfile", true);
+		}
+		else {
+			i.putExtra("user_id", user_id);
+		}
+		i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		context.startActivity(i);
+	}
+
+	@Override
+	public void onTabSelected(Tab tab, FragmentTransaction ft) {
+		System.out.println("Tab selected");
+		FragmentTransaction sft = getSupportFragmentManager().beginTransaction();
+		if(tweetsLoader == null) {
+			tweetsLoader = new TweetsLoader();
+		}
+		if(tab.getTag().toString().equals("home")) {
+			tweetsLoader.api = HOME_TIMELINE_API;
+			isHome = true;
+		}
+		else {
+			tweetsLoader.api = MENTIONS_TIMELINE_API;
+			isHome = false;
+		}
+		if(tweetsFragment == null) {
+			System.out.println("Creating fragment");
+			tweetsFragment = new TweetsFragment(tweetsLoader);
+			sft.replace(R.id.tweets_placeholder, tweetsFragment);
+		}
+		else {
+			System.out.println("Reattaching fragment");
+			sft.attach(tweetsFragment);
+			tweetsLoader.loadAllTweets();
+		}
+		sft.commit();
+	}
+
+	@Override
+	public void onTabUnselected(Tab tab, FragmentTransaction ft) {
+		System.out.println("Detaching fragment");
+		FragmentTransaction sft = getSupportFragmentManager().beginTransaction();
+		if(tweetsFragment != null) {
+			sft.detach(tweetsFragment);
+		}
+		sft.commit();
+	}
+
+	@Override
+	public void onTabReselected(Tab tab, FragmentTransaction ft) {
+		System.out.println("Tab reselected");
 	}
 }

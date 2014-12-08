@@ -7,6 +7,7 @@ import android.content.Context;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
@@ -28,7 +29,7 @@ public class TweetAdapter extends ArrayAdapter<Tweet> {
 			convertView = LayoutInflater.from(getContext()).inflate(R.layout.tweet, parent, false);
 		}
 		
-		Tweet t = (Tweet) getItem(position);
+		final Tweet t = (Tweet) getItem(position);
 
 		TextView tvUserName = (TextView) convertView.findViewById(R.id.tvUserName);
 		TextView tvScreenName = (TextView) convertView.findViewById(R.id.tvScreenName);
@@ -41,6 +42,14 @@ public class TweetAdapter extends ArrayAdapter<Tweet> {
 		tvCreateAt.setText(DateUtils.getRelativeTimeSpanString(t.created_at, new Date().getTime(), DateUtils.SECOND_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE));
 		tvTweet.setText(t.text);
 		ImageLoader.getInstance().displayImage(t.user.profile_image_url, ivProfileImage);
+		
+		ivProfileImage.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				HomeActivity.openProfileActivity(getContext(), t.user.user_id);
+			}
+		});
 		
 		return convertView;
 	}

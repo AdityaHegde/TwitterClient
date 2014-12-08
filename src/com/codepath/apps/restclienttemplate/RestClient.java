@@ -53,15 +53,21 @@ public class RestClient extends OAuthBaseClient {
 	 *    i.e client.post(apiUrl, params, handler);
 	 */
 	
-	public void getHomeTimeline(long max_id, long since_id, AsyncHttpResponseHandler handler) {
-		  String apiUrl = getApiUrl("statuses/home_timeline.json");
-		  RequestParams params = new RequestParams();
+	public void getTimeline(long max_id, long since_id, TweetsLoader loader, AsyncHttpResponseHandler handler) {
+		  String apiUrl = getApiUrl(loader.api);
+		  RequestParams params = loader.params;
 		  params.put("count", COUNT);
 		  if(max_id != -1) {
 			  params.put("max_id", String.valueOf(max_id - 1));
 		  }
+		  else {
+			  params.remove("max_id");
+		  }
 		  if(since_id != -1) {
 			  params.put("since_id", String.valueOf(since_id));
+		  }
+		  else {
+			  params.remove("since_id");
 		  }
 		  getClient().get(apiUrl, params, handler);
 	}
@@ -71,5 +77,19 @@ public class RestClient extends OAuthBaseClient {
 	    RequestParams params = new RequestParams();
 	    params.put("status", body);
 	    getClient().post(apiUrl, params, handler);
+	}
+	
+	public void getUserData(String user_id, AsyncHttpResponseHandler handler) {
+		String apiUrl = getApiUrl("users/show.json");
+		RequestParams params = new RequestParams();
+		params.put("user_id", user_id);
+		getClient().get(apiUrl, params, handler);
+	}
+	
+	public void getLoogedInUserData(AsyncHttpResponseHandler handler) {
+		String apiUrl = getApiUrl("account/verify_credentials.json");
+		RequestParams params = new RequestParams();
+		params.put("skip_status", "1");
+		getClient().get(apiUrl, params, handler);
 	}
 }
